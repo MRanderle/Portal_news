@@ -135,12 +135,44 @@
         </a>
     </div>
     
-    <!-- Grid de Notícias do Dashboard -->
+    <!-- Grid de Notícias do Dashboard MELHORADO -->
     <div class="news-grid animate-slide-in">
         <% if (noticias && noticias.length > 0) { %>
             <% noticias.forEach((noticia, index) => { %>
                 <article class="news-card hover-lift hover-glow" style="animation-delay: <%= index * 0.1 %>s;">
-                    <% if (noticia.imagem) { %>
+                    <!-- Imagem ou Vídeo -->
+                    <% if (noticia.video_url) { %>
+                        <div class="news-card-image">
+                            <video 
+                                controls 
+                                preload="metadata"
+                                style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;"
+                                poster="<%= noticia.imagem || '' %>"
+                            >
+                                <source src="<%= noticia.video_url %>" type="video/mp4">
+                                <source src="<%= noticia.video_url %>" type="video/webm">
+                                <source src="<%= noticia.video_url %>" type="video/ogg">
+                                Seu navegador não suporta a tag de vídeo.
+                            </video>
+                            <!-- Indicador de Vídeo -->
+                            <div style="
+                                position: absolute;
+                                top: 10px;
+                                right: 10px;
+                                background: rgba(0,0,0,0.7);
+                                color: white;
+                                padding: 4px 8px;
+                                border-radius: 15px;
+                                font-size: 0.8rem;
+                                display: flex;
+                                align-items: center;
+                                gap: 4px;
+                            ">
+                                <i class="fas fa-play"></i>
+                                Vídeo
+                            </div>
+                        </div>
+                    <% } else if (noticia.imagem) { %>
                         <div class="news-card-image">
                             <img src="<%= noticia.imagem %>" alt="<%= noticia.titulo %>" loading="lazy">
                         </div>
@@ -154,12 +186,30 @@
                         <% } %>
                         
                         <h3 class="news-title">
-                            <%= noticia.titulo %>
+                            <a href="/noticia/<%= noticia.id %>" style="color: inherit; text-decoration: none;">
+                                <%= noticia.titulo %>
+                            </a>
                         </h3>
                         
                         <% if (noticia.subtitulo) { %>
                             <p class="news-subtitle">
                                 <%= noticia.subtitulo %>
+                            </p>
+                        <% } %>
+                        
+                        <!-- Preview do Conteúdo -->
+                        <% if (noticia.conteudo) { %>
+                            <p style="
+                                color: var(--text-muted);
+                                font-size: 0.9rem;
+                                line-height: 1.5;
+                                margin: 1rem 0;
+                                display: -webkit-box;
+                                -webkit-line-clamp: 3;
+                                -webkit-box-orient: vertical;
+                                overflow: hidden;
+                            ">
+                                <%= noticia.conteudo.substring(0, 150) %>...
                             </p>
                         <% } %>
                         
@@ -170,19 +220,107 @@
                             </span>
                             <span>
                                 <i class="far fa-eye"></i>
-                                <%= noticia.visualizacoes %> visualizações
+                                <%= noticia.visualizacoes || 0 %> visualizações
                             </span>
+                            
+                            <!-- Indicadores de Mídia -->
+                            <div style="display: flex; gap: 5px; margin-top: 5px;">
+                                <% if (noticia.video_url) { %>
+                                    <span style="
+                                        background: #ef4444;
+                                        color: white;
+                                        padding: 2px 6px;
+                                        border-radius: 10px;
+                                        font-size: 0.7rem;
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 3px;
+                                    ">
+                                        <i class="fas fa-video"></i>
+                                        Vídeo
+                                    </span>
+                                <% } %>
+                                <% if (noticia.imagem && !noticia.video_url) { %>
+                                    <span style="
+                                        background: #10b981;
+                                        color: white;
+                                        padding: 2px 6px;
+                                        border-radius: 10px;
+                                        font-size: 0.7rem;
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 3px;
+                                    ">
+                                        <i class="fas fa-image"></i>
+                                        Imagem
+                                    </span>
+                                <% } %>
+                                <% if (noticia.url_externa) { %>
+                                    <span style="
+                                        background: #6366f1;
+                                        color: white;
+                                        padding: 2px 6px;
+                                        border-radius: 10px;
+                                        font-size: 0.7rem;
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 3px;
+                                    ">
+                                        <i class="fas fa-external-link-alt"></i>
+                                        Link
+                                    </span>
+                                <% } %>
+                            </div>
                         </div>
                         
-                        <% if (noticia.url_externa) { %>
-                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                        <!-- Botões de Ação -->
+                        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <a href="/noticia/<%= noticia.id %>" 
+                               style="
+                                   flex: 1;
+                                   display: inline-flex;
+                                   align-items: center;
+                                   justify-content: center;
+                                   gap: 0.5rem;
+                                   padding: 8px 16px;
+                                   background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                                   color: white;
+                                   text-decoration: none;
+                                   border-radius: 8px;
+                                   font-size: 0.9rem;
+                                   font-weight: 500;
+                                   transition: all 0.3s ease;
+                               "
+                               onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(99, 102, 241, 0.3)'"
+                               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                                <i class="fas fa-book-open"></i>
+                                Ler Completa
+                            </a>
+                            
+                            <% if (noticia.url_externa) { %>
                                 <a href="<%= noticia.url_externa %>" target="_blank" 
-                                   class="btn btn-outline" style="padding: 8px 16px; font-size: 0.9rem;">
+                                   style="
+                                       display: inline-flex;
+                                       align-items: center;
+                                       justify-content: center;
+                                       gap: 0.5rem;
+                                       padding: 8px 12px;
+                                       background: white;
+                                       color: #6366f1;
+                                       text-decoration: none;
+                                       border: 2px solid #6366f1;
+                                       border-radius: 8px;
+                                       font-size: 0.9rem;
+                                       font-weight: 500;
+                                       transition: all 0.3s ease;
+                                   "
+                                   onmouseover="this.style.background='#6366f1'; this.style.color='white'"
+                                   onmouseout="this.style.background='white'; this.style.color='#6366f1'">
                                     <i class="fas fa-external-link-alt"></i>
-                                    Ler Completa
+                                    Fonte
                                 </a>
-                            </div>
-                        <% } %>
+                            <% } %>
+                        </div>
                     </div>
                 </article>
             <% }) %>
@@ -223,7 +361,7 @@
     </div>
 </div>
 
-<!-- Script para animações -->
+<!-- Script para animações e funcionalidades -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📊 Dashboard carregado para:', '<%= user ? user.nome : "Usuário" %>');
@@ -241,10 +379,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }, index * 100);
     });
     
+    // Lazy loading para vídeos
+    const videos = document.querySelectorAll('video');
+    videos.forEach(video => {
+        video.addEventListener('loadstart', function() {
+            console.log('🎥 Carregando vídeo:', this.src);
+        });
+        
+        video.addEventListener('loadeddata', function() {
+            console.log('✅ Vídeo carregado:', this.src);
+        });
+        
+        video.addEventListener('error', function() {
+            console.error('❌ Erro ao carregar vídeo:', this.src);
+            // Fallback para imagem se vídeo falhar
+            const poster = this.getAttribute('poster');
+            if (poster) {
+                const img = document.createElement('img');
+                img.src = poster;
+                img.style.width = '100%';
+                img.style.height = '200px';
+                img.style.objectFit = 'cover';
+                img.style.borderRadius = '8px 8px 0 0';
+                this.parentNode.replaceChild(img, this);
+            }
+        });
+    });
+    
     // Log para debug
     console.log('📰 Total de notícias:', newsCards.length);
     <% if (noticias && noticias.length > 0) { %>
         console.log('📊 Notícias carregadas:', <%= noticias.length %>);
+        const noticiasComVideo = document.querySelectorAll('video').length;
+        console.log('🎥 Notícias com vídeo:', noticiasComVideo);
     <% } else { %>
         console.log('📭 Nenhuma notícia encontrada');
     <% } %>

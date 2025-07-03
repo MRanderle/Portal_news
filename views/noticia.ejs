@@ -1,0 +1,428 @@
+<%- include('partials/head', { title: noticia.titulo }) %>
+<%- include('partials/navbar') %>
+
+<div class="container">
+    <%- include('partials/messages') %>
+    
+    <!-- Breadcrumb -->
+    <nav style="margin-bottom: 2rem;">
+        <ol style="
+            display: flex; 
+            list-style: none; 
+            padding: 0; 
+            margin: 0; 
+            font-size: 0.9rem; 
+            color: var(--text-muted);
+        ">
+            <li><a href="/" style="color: var(--primary-color); text-decoration: none;">Início</a></li>
+            <li style="margin: 0 8px;">/</li>
+            <% if (noticia.categoria_nome) { %>
+                <li><span style="color: <%= noticia.categoria_cor %>; font-weight: 500;"><%= noticia.categoria_nome %></span></li>
+                <li style="margin: 0 8px;">/</li>
+            <% } %>
+            <li style="color: var(--text-muted);"><%= noticia.titulo.substring(0, 50) %>...</li>
+        </ol>
+    </nav>
+
+    <!-- Artigo Principal -->
+    <article class="card" style="margin-bottom: 3rem;">
+        <!-- Cabeçalho da Notícia -->
+        <header style="margin-bottom: 2rem;">
+            <!-- Categoria -->
+            <% if (noticia.categoria_nome) { %>
+                <div style="margin-bottom: 1rem;">
+                    <span style="
+                        background: <%= noticia.categoria_cor %>;
+                        color: white;
+                        padding: 6px 16px;
+                        border-radius: 20px;
+                        font-size: 0.85rem;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    ">
+                        <%= noticia.categoria_nome %>
+                    </span>
+                </div>
+            <% } %>
+
+            <!-- Título -->
+            <h1 style="
+                font-family: 'Playfair Display', serif;
+                font-size: 2.5rem;
+                font-weight: 700;
+                line-height: 1.2;
+                color: var(--text-primary);
+                margin-bottom: 1rem;
+            ">
+                <%= noticia.titulo %>
+            </h1>
+
+            <!-- Subtítulo -->
+            <% if (noticia.subtitulo) { %>
+                <h2 style="
+                    font-size: 1.3rem;
+                    font-weight: 400;
+                    color: var(--text-secondary);
+                    line-height: 1.4;
+                    margin-bottom: 2rem;
+                ">
+                    <%= noticia.subtitulo %>
+                </h2>
+            <% } %>
+
+            <!-- Meta Informações -->
+            <div style="
+                display: flex;
+                align-items: center;
+                gap: 2rem;
+                flex-wrap: wrap;
+                padding: 1rem 0;
+                border-top: 1px solid var(--border-color);
+                border-bottom: 1px solid var(--border-color);
+                margin-bottom: 2rem;
+                font-size: 0.9rem;
+                color: var(--text-muted);
+            ">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="far fa-calendar-alt"></i>
+                    <span><%= new Date(noticia.criado_em).toLocaleDateString('pt-BR', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    }) %></span>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="far fa-clock"></i>
+                    <span><%= new Date(noticia.criado_em).toLocaleTimeString('pt-BR', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    }) %></span>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="far fa-eye"></i>
+                    <span><%= noticia.visualizacoes || 0 %> visualizações</span>
+                </div>
+
+                <% if (noticia.autor) { %>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="far fa-user"></i>
+                        <span>Por <strong><%= noticia.autor %></strong></span>
+                    </div>
+                <% } %>
+
+                <% if (noticia.fonte) { %>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="far fa-building"></i>
+                        <span>Fonte: <strong><%= noticia.fonte %></strong></span>
+                    </div>
+                <% } %>
+            </div>
+        </header>
+
+        <!-- Mídia Principal (Vídeo ou Imagem) -->
+        <% if (noticia.video_url || noticia.imagem) { %>
+            <div style="margin-bottom: 3rem;">
+                <% if (noticia.video_url) { %>
+                    <!-- Vídeo Principal -->
+                    <div style="
+                        position: relative;
+                        background: #000;
+                        border-radius: 12px;
+                        overflow: hidden;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                    ">
+                        <video 
+                            controls 
+                            preload="metadata"
+                            style="width: 100%; height: auto; max-height: 500px; display: block;"
+                            poster="<%= noticia.imagem || '' %>"
+                        >
+                            <source src="<%= noticia.video_url %>" type="video/mp4">
+                            <source src="<%= noticia.video_url %>" type="video/webm">
+                            <source src="<%= noticia.video_url %>" type="video/ogg">
+                            <p style="color: white; padding: 2rem; text-align: center;">
+                                Seu navegador não suporta a reprodução de vídeo. 
+                                <a href="<%= noticia.video_url %>" style="color: #6366f1;">
+                                    Clique aqui para baixar o vídeo
+                                </a>
+                            </p>
+                        </video>
+                        
+                        <!-- Indicador de Vídeo -->
+                        <div style="
+                            position: absolute;
+                            top: 15px;
+                            right: 15px;
+                            background: rgba(0,0,0,0.8);
+                            color: white;
+                            padding: 8px 12px;
+                            border-radius: 20px;
+                            font-size: 0.9rem;
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            font-weight: 500;
+                        ">
+                            <i class="fas fa-play"></i>
+                            Vídeo HD
+                        </div>
+                    </div>
+                <% } else if (noticia.imagem) { %>
+                    <!-- Imagem Principal -->
+                    <div style="
+                        border-radius: 12px;
+                        overflow: hidden;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                    ">
+                        <img 
+                            src="<%= noticia.imagem %>" 
+                            alt="<%= noticia.titulo %>" 
+                            style="width: 100%; height: auto; max-height: 500px; object-fit: cover; display: block;"
+                            loading="lazy"
+                        >
+                    </div>
+                <% } %>
+            </div>
+        <% } %>
+
+        <!-- Conteúdo da Notícia -->
+        <div style="
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: var(--text-primary);
+            max-width: none;
+        ">
+            <div style="white-space: pre-line; margin-bottom: 2rem;">
+                <%= noticia.conteudo %>
+            </div>
+
+            <!-- Link Externo -->
+            <% if (noticia.url_externa) { %>
+                <div style="
+                    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+                    border: 2px solid #6366f1;
+                    border-radius: 12px;
+                    padding: 1.5rem;
+                    margin: 2rem 0;
+                    text-align: center;
+                ">
+                    <h4 style="margin-bottom: 1rem; color: var(--text-primary);">
+                        <i class="fas fa-external-link-alt" style="color: #6366f1;"></i>
+                        Leia a matéria completa
+                    </h4>
+                    <a href="<%= noticia.url_externa %>" target="_blank" style="
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 0.5rem;
+                        padding: 12px 24px;
+                        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                        color: white;
+                        text-decoration: none;
+                        border-radius: 10px;
+                        font-weight: 600;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+                    "
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(99, 102, 241, 0.4)'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(99, 102, 241, 0.3)'">
+                        <i class="fas fa-arrow-right"></i>
+                        Acessar fonte original
+                    </a>
+                </div>
+            <% } %>
+        </div>
+
+        <!-- Ações da Notícia -->
+        <div style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 0;
+            border-top: 1px solid var(--border-color);
+            margin-top: 3rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        ">
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <button onclick="compartilharNoticia()" style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 10px 16px;
+                    background: #1da1f2;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                "
+                onmouseover="this.style.background='#1a91da'"
+                onmouseout="this.style.background='#1da1f2'">
+                    <i class="fas fa-share"></i>
+                    Compartilhar
+                </button>
+
+                <button onclick="favoritar(<%= noticia.id %>)" style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 10px 16px;
+                    background: #ef4444;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                "
+                onmouseover="this.style.background='#dc2626'"
+                onmouseout="this.style.background='#ef4444'">
+                    <i class="far fa-heart"></i>
+                    Favoritar
+                </button>
+            </div>
+
+            <a href="/dashboard" style="
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 10px 16px;
+                background: white;
+                color: #6366f1;
+                text-decoration: none;
+                border: 2px solid #6366f1;
+                border-radius: 8px;
+                font-weight: 500;
+                transition: all 0.3s ease;
+            "
+            onmouseover="this.style.background='#6366f1'; this.style.color='white'"
+            onmouseout="this.style.background='white'; this.style.color='#6366f1'">
+                <i class="fas fa-arrow-left"></i>
+                Voltar ao Dashboard
+            </a>
+        </div>
+    </article>
+
+    <!-- Notícias Relacionadas -->
+    <% if (relacionadas && relacionadas.length > 0) { %>
+        <section style="margin-bottom: 3rem;">
+            <h3 style="
+                font-family: 'Playfair Display', serif;
+                font-size: 2rem;
+                margin-bottom: 2rem;
+                color: var(--text-primary);
+                text-align: center;
+            ">
+                Notícias Relacionadas
+            </h3>
+
+            <div class="news-grid">
+                <% relacionadas.forEach(relacionada => { %>
+                    <article class="news-card hover-lift">
+                        <% if (relacionada.video_url) { %>
+                            <div class="news-card-image">
+                                <video 
+                                    preload="metadata"
+                                    style="width: 100%; height: 200px; object-fit: cover;"
+                                    poster="<%= relacionada.imagem || '' %>"
+                                >
+                                    <source src="<%= relacionada.video_url %>" type="video/mp4">
+                                </video>
+                                <div style="
+                                    position: absolute;
+                                    top: 10px;
+                                    right: 10px;
+                                    background: rgba(0,0,0,0.7);
+                                    color: white;
+                                    padding: 4px 8px;
+                                    border-radius: 15px;
+                                    font-size: 0.8rem;
+                                ">
+                                    <i class="fas fa-play"></i>
+                                </div>
+                            </div>
+                        <% } else if (relacionada.imagem) { %>
+                            <div class="news-card-image">
+                                <img src="<%= relacionada.imagem %>" alt="<%= relacionada.titulo %>">
+                            </div>
+                        <% } %>
+                        
+                        <div class="news-card-content">
+                            <% if (relacionada.categoria_nome) { %>
+                                <span class="news-category" style="background: <%= relacionada.categoria_cor %>;">
+                                    <%= relacionada.categoria_nome %>
+                                </span>
+                            <% } %>
+                            
+                            <h4 class="news-title">
+                                <a href="/noticia/<%= relacionada.id %>" style="color: inherit; text-decoration: none;">
+                                    <%= relacionada.titulo %>
+                                </a>
+                            </h4>
+                            
+                            <div class="news-meta">
+                                <span>
+                                    <i class="far fa-calendar-alt"></i>
+                                    <%= new Date(relacionada.criado_em).toLocaleDateString('pt-BR') %>
+                                </span>
+                            </div>
+                        </div>
+                    </article>
+                <% }) %>
+            </div>
+        </section>
+    <% } %>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📰 Notícia carregada:', '<%= noticia.titulo %>');
+    
+    // Debug do vídeo
+    const video = document.querySelector('video');
+    if (video) {
+        console.log('🎥 Vídeo encontrado:', video.src);
+        
+        video.addEventListener('loadstart', function() {
+            console.log('📹 Iniciando carregamento do vídeo...');
+        });
+        
+        video.addEventListener('loadeddata', function() {
+            console.log('✅ Vídeo carregado com sucesso!');
+        });
+        
+        video.addEventListener('error', function(e) {
+            console.error('❌ Erro ao carregar vídeo:', e);
+            console.error('🔍 Verificar URL do vídeo:', this.src);
+        });
+    }
+});
+
+function compartilharNoticia() {
+    if (navigator.share) {
+        navigator.share({
+            title: '<%= noticia.titulo %>',
+            text: '<%= noticia.subtitulo || noticia.titulo %>',
+            url: window.location.href
+        });
+    } else {
+        // Fallback para copiar URL
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            alert('Link copiado para a área de transferência!');
+        });
+    }
+}
+
+function favoritar(noticiaId) {
+    // Implementar sistema de favoritos
+    console.log('❤️ Favoritando notícia:', noticiaId);
+    alert('Funcionalidade de favoritos será implementada em breve!');
+}
+</script>
+
+<%- include('partials/footer') %>

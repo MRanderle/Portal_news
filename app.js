@@ -67,23 +67,34 @@ const upload = multer({
     }
 });
 
-// Middleware
+// Middleware básico
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// ===== CONFIGURAÇÃO DE SESSÃO (APENAS UMA VEZ) =====
 app.use(session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || 'seu-secret-super-seguro-mude-em-producao',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }
+    cookie: { 
+        secure: false, // mude para true em produção com HTTPS
+        maxAge: 24 * 60 * 60 * 1000 // 24 horas
+    }
 }));
+
+// ===== FLASH MESSAGES (APENAS UMA VEZ) =====
 app.use(flash());
 
 // Middleware para variáveis globais
 app.use((req, res, next) => {
     res.locals.user = req.session.user;
-    res.locals.messages = req.flash();
+    res.locals.messages = {
+        success: req.flash('success'),
+        error: req.flash('error'),
+        info: req.flash('info')
+    };
     next();
 });
 
@@ -109,7 +120,9 @@ const createTables = () => {
             token_verificacao VARCHAR(255),
             dark_mode BOOLEAN DEFAULT FALSE,
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            ultimo_acesso TIMESTAMP NULL,
+            tipo_usuario ENUM('user', 'admin', 'master') DEFAULT 'user'
         )`,
         
         `CREATE TABLE IF NOT EXISTS categorias (
@@ -135,13 +148,18 @@ const createTables = () => {
             subtitulo TEXT,
             conteudo TEXT NOT NULL,
             imagem VARCHAR(255),
+            video_url VARCHAR(500),
             categoria_id INT,
             autor VARCHAR(100),
             fonte VARCHAR(100),
             url_externa VARCHAR(500),
+            admin_id INT,
+            publicado TINYINT(1) DEFAULT 0,
             visualizacoes INT DEFAULT 0,
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (categoria_id) REFERENCES categorias(id)
+            atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (categoria_id) REFERENCES categorias(id),
+            FOREIGN KEY (admin_id) REFERENCES usuarios(id) ON DELETE SET NULL
         )`,
 
         // Tabelas avançadas
@@ -153,6 +171,17 @@ const createTables = () => {
             FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
             FOREIGN KEY (noticia_id) REFERENCES noticias(id) ON DELETE CASCADE,
             UNIQUE KEY unique_favorito (usuario_id, noticia_id)
+        )`,
+        
+        `CREATE TABLE IF NOT EXISTS comentarios (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            noticia_id INT NOT NULL,
+            usuario_id INT NOT NULL,
+            comentario TEXT NOT NULL,
+            aprovado TINYINT(1) DEFAULT 1,
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (noticia_id) REFERENCES noticias(id) ON DELETE CASCADE,
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
         )`,
         
         `CREATE TABLE IF NOT EXISTS notificacoes (
@@ -177,6 +206,19 @@ const createTables = () => {
             user_agent TEXT,
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+        )`,
+
+        `CREATE TABLE IF NOT EXISTS logs_admin (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            admin_id INT NOT NULL,
+            acao VARCHAR(100) NOT NULL,
+            tabela_afetada VARCHAR(50),
+            registro_id INT,
+            detalhes JSON,
+            ip_address VARCHAR(45),
+            user_agent TEXT,
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (admin_id) REFERENCES usuarios(id) ON DELETE CASCADE
         )`
     ];
 
@@ -208,7 +250,7 @@ const createTables = () => {
     });
 };
 
-// ROTAS
+// ===== ROTAS =====
 
 // Página inicial
 app.get('/', (req, res) => {
@@ -216,6 +258,7 @@ app.get('/', (req, res) => {
         SELECT n.*, c.nome as categoria_nome, c.cor as categoria_cor 
         FROM noticias n 
         LEFT JOIN categorias c ON n.categoria_id = c.id 
+        WHERE n.publicado = 1
         ORDER BY n.criado_em DESC 
         LIMIT 12
     `;
@@ -399,6 +442,9 @@ app.post('/login', async (req, res) => {
             foto_perfil: user.foto_perfil
         };
 
+        // Atualizar último acesso
+        db.query('UPDATE usuarios SET ultimo_acesso = NOW() WHERE id = ?', [user.id]);
+
         // Verificar se é o primeiro login
         const categoryQuery = 'SELECT COUNT(*) as count FROM usuario_categorias WHERE usuario_id = ?';
         const categoryCount = await new Promise((resolve, reject) => {
@@ -480,7 +526,7 @@ app.get('/dashboard', requireAuth, (req, res) => {
         SELECT n.*, c.nome as categoria_nome, c.cor as categoria_cor 
         FROM noticias n 
         LEFT JOIN categorias c ON n.categoria_id = c.id 
-        WHERE n.categoria_id IN (
+        WHERE n.publicado = 1 AND n.categoria_id IN (
             SELECT categoria_id FROM usuario_categorias WHERE usuario_id = ?
         )
         ORDER BY n.criado_em DESC 
@@ -583,425 +629,6 @@ app.post('/atualizar-categorias', requireAuth, (req, res) => {
     });
 });
 
-// SUBSTITUA a rota app.post('/login') no seu app.js por esta versão:
-
-app.post('/login', async (req, res) => {
-    console.log('\n🔐 === INICIANDO PROCESSO DE LOGIN ===');
-    console.log('📊 Dados recebidos:', req.body);
-    console.log('🌐 IP do cliente:', req.ip);
-    console.log('📱 User-Agent:', req.get('User-Agent'));
-
-    try {
-        const { email, senha } = req.body;
-
-        // Validação básica
-        console.log('1️⃣ Validando dados básicos...');
-        if (!email || !senha) {
-            console.log('❌ Campos obrigatórios não preenchidos');
-            console.log('   Email:', email ? '✅' : '❌');
-            console.log('   Senha:', senha ? '✅' : '❌');
-            req.flash('error', 'Email e senha são obrigatórios');
-            return res.redirect('/login');
-        }
-        console.log('✅ Dados básicos validados');
-
-        // Buscar usuário
-        console.log('2️⃣ Buscando usuário no banco de dados...');
-        console.log('   Email de busca:', email.trim());
-        
-        const userQuery = 'SELECT * FROM usuarios WHERE email = ?';
-        const users = await new Promise((resolve, reject) => {
-            db.query(userQuery, [email.trim()], (err, results) => {
-                if (err) {
-                    console.error('💥 Erro na consulta SQL:', err);
-                    reject(err);
-                } else {
-                    console.log('📊 Resultados da busca:', results.length, 'usuário(s) encontrado(s)');
-                    resolve(results);
-                }
-            });
-        });
-
-        if (users.length === 0) {
-            console.log('❌ Nenhum usuário encontrado com este email');
-            req.flash('error', 'Email ou senha incorretos');
-            return res.redirect('/login');
-        }
-        
-        const user = users[0];
-        console.log('✅ Usuário encontrado:');
-        console.log('   ID:', user.id);
-        console.log('   Nome:', user.nome);
-        console.log('   Email:', user.email);
-        console.log('   Verificado:', user.verificado ? 'SIM ✅' : 'NÃO ❌');
-        console.log('   Hash da senha:', user.senha.substring(0, 20) + '...');
-
-        // Verificar se o usuário está verificado
-        console.log('3️⃣ Verificando status de verificação...');
-        if (!user.verificado) {
-            console.log('❌ Usuário não verificado - login bloqueado');
-            req.flash('error', 'Por favor, verifique seu email antes de fazer login. Verifique sua caixa de entrada e spam.');
-            return res.redirect('/login');
-        }
-        console.log('✅ Usuário verificado');
-
-        // Verificar senha
-        console.log('4️⃣ Verificando senha...');
-        console.log('   Senha fornecida:', '[' + senha.length + ' caracteres]');
-        console.log('   Hash no banco:', user.senha.substring(0, 20) + '...');
-        
-        const isValidPassword = await bcrypt.compare(senha, user.senha);
-        console.log('   Resultado da comparação:', isValidPassword ? 'VÁLIDA ✅' : 'INVÁLIDA ❌');
-        
-        if (!isValidPassword) {
-            console.log('❌ Senha incorreta - login negado');
-            req.flash('error', 'Email ou senha incorretos');
-            return res.redirect('/login');
-        }
-        console.log('✅ Senha verificada com sucesso');
-
-        // Criar sessão
-        console.log('5️⃣ Criando sessão do usuário...');
-        req.session.user = {
-            id: user.id,
-            nome: user.nome,
-            email: user.email,
-            foto_perfil: user.foto_perfil
-        };
-        console.log('✅ Sessão criada:', req.session.user);
-
-        // Verificar categorias (primeiro acesso)
-        console.log('6️⃣ Verificando categorias do usuário...');
-        const categoryQuery = 'SELECT COUNT(*) as count FROM usuario_categorias WHERE usuario_id = ?';
-        const categoryCount = await new Promise((resolve, reject) => {
-            db.query(categoryQuery, [user.id], (err, results) => {
-                if (err) {
-                    console.error('💥 Erro ao verificar categorias:', err);
-                    reject(err);
-                } else {
-                    console.log('📊 Resultado da consulta de categorias:', results);
-                    resolve(results);
-                }
-            });
-        });
-
-        const totalCategorias = categoryCount[0].count;
-        console.log('   Total de categorias do usuário:', totalCategorias);
-
-        if (totalCategorias === 0) {
-            console.log('🎯 PRIMEIRO ACESSO - Redirecionando para seleção de categorias');
-            req.flash('success', 'Login realizado com sucesso! Agora selecione suas categorias de interesse.');
-            console.log('🔀 Redirecionando para: /selecionar-categorias');
-            res.redirect('/selecionar-categorias');
-        } else {
-            console.log('🏠 USUÁRIO JÁ CONFIGURADO - Redirecionando para dashboard');
-            req.flash('success', `Bem-vindo de volta, ${user.nome}!`);
-            console.log('🔀 Redirecionando para: /dashboard');
-            res.redirect('/dashboard');
-        }
-
-        console.log('✅ === LOGIN CONCLUÍDO COM SUCESSO ===\n');
-
-    } catch (error) {
-        console.error('💥 === ERRO NO PROCESSO DE LOGIN ===');
-        console.error('Erro completo:', error);
-        console.error('Stack trace:', error.stack);
-        req.flash('error', 'Erro interno do servidor. Tente novamente.');
-        res.redirect('/login');
-    }
-});
-
-// Função para criar notificação
-function criarNotificacao(userId, titulo, mensagem, tipo = 'sistema', dados = null) {
-    db.query(
-        'INSERT INTO notificacoes (usuario_id, titulo, mensagem, tipo, dados) VALUES (?, ?, ?, ?, ?)',
-        [userId, titulo, mensagem, tipo, JSON.stringify(dados)],
-        (err) => {
-            if (err) console.error('Erro ao criar notificação:', err);
-        }
-    );
-}
-
-// ============================================
-// ROTAS DO PERFIL - Adicione no seu app.js
-// ============================================
-
-// ROTA: Exibir página de perfil
-app.get('/perfil', requireAuth, (req, res) => {
-    console.log('👤 Acessando página de perfil para usuário:', req.session.user.id);
-    
-    const userId = req.session.user.id;
-
-    const query = `
-        SELECT c.*, 
-               CASE WHEN uc.categoria_id IS NOT NULL THEN 1 ELSE 0 END as selecionada
-        FROM categorias c 
-        LEFT JOIN usuario_categorias uc ON c.id = uc.categoria_id AND uc.usuario_id = ?
-        ORDER BY c.nome
-    `;
-
-    db.query(query, [userId], (err, categorias) => {
-        if (err) {
-            console.error('❌ Erro ao buscar categorias:', err);
-            return res.render('perfil', { categorias: [] });
-        }
-        
-        console.log('✅ Categorias carregadas:', categorias.length);
-        res.render('perfil', { categorias });
-    });
-});
-
-// ROTA: Atualizar dados pessoais (nome)
-app.post('/atualizar-perfil', requireAuth, async (req, res) => {
-    console.log('✏️ Atualizando dados do perfil...');
-    
-    try {
-        const { nome } = req.body;
-        const userId = req.session.user.id;
-        
-        console.log('📝 Dados recebidos:', { nome, userId });
-
-        // Validações
-        if (!nome || nome.trim().length < 2) {
-            req.flash('error', 'Nome deve ter pelo menos 2 caracteres');
-            return res.redirect('/perfil');
-        }
-
-        // Atualizar no banco
-        const updateQuery = 'UPDATE usuarios SET nome = ?, atualizado_em = NOW() WHERE id = ?';
-        await new Promise((resolve, reject) => {
-            db.query(updateQuery, [nome.trim(), userId], (err, result) => {
-                if (err) {
-                    console.error('❌ Erro ao atualizar perfil:', err);
-                    reject(err);
-                } else {
-                    console.log('✅ Perfil atualizado:', result.affectedRows, 'linha(s)');
-                    resolve(result);
-                }
-            });
-        });
-
-        // Atualizar sessão
-        req.session.user.nome = nome.trim();
-        
-        req.flash('success', 'Dados pessoais atualizados com sucesso!');
-        console.log('✅ Perfil atualizado com sucesso');
-        res.redirect('/perfil');
-
-    } catch (error) {
-        console.error('💥 Erro ao atualizar perfil:', error);
-        req.flash('error', 'Erro ao atualizar dados. Tente novamente.');
-        res.redirect('/perfil');
-    }
-});
-
-// ROTA: Alterar senha
-app.post('/alterar-senha', requireAuth, async (req, res) => {
-    console.log('🔐 Alterando senha do usuário...');
-    
-    try {
-        const { senhaAtual, novaSenha, confirmarSenha } = req.body;
-        const userId = req.session.user.id;
-        
-        console.log('📝 Tentativa de alteração de senha para usuário:', userId);
-
-        // Validações básicas
-        if (!senhaAtual || !novaSenha || !confirmarSenha) {
-            req.flash('error', 'Todos os campos são obrigatórios');
-            return res.redirect('/perfil');
-        }
-
-        if (novaSenha !== confirmarSenha) {
-            req.flash('error', 'Nova senha e confirmação não coincidem');
-            return res.redirect('/perfil');
-        }
-
-        if (novaSenha.length < 6) {
-            req.flash('error', 'Nova senha deve ter pelo menos 6 caracteres');
-            return res.redirect('/perfil');
-        }
-
-        // Buscar usuário atual
-        const userQuery = 'SELECT * FROM usuarios WHERE id = ?';
-        const user = await new Promise((resolve, reject) => {
-            db.query(userQuery, [userId], (err, results) => {
-                if (err) {
-                    console.error('❌ Erro ao buscar usuário:', err);
-                    reject(err);
-                } else if (results.length === 0) {
-                    reject(new Error('Usuário não encontrado'));
-                } else {
-                    resolve(results[0]);
-                }
-            });
-        });
-
-        // Verificar senha atual
-        console.log('🔍 Verificando senha atual...');
-        const senhaAtualCorreta = await bcrypt.compare(senhaAtual, user.senha);
-        
-        if (!senhaAtualCorreta) {
-            console.log('❌ Senha atual incorreta');
-            req.flash('error', 'Senha atual incorreta');
-            return res.redirect('/perfil');
-        }
-
-        // Gerar hash da nova senha
-        console.log('🔐 Gerando hash da nova senha...');
-        const novoHash = await bcrypt.hash(novaSenha, 12);
-
-        // Atualizar no banco
-        const updateQuery = 'UPDATE usuarios SET senha = ?, atualizado_em = NOW() WHERE id = ?';
-        await new Promise((resolve, reject) => {
-            db.query(updateQuery, [novoHash, userId], (err, result) => {
-                if (err) {
-                    console.error('❌ Erro ao atualizar senha:', err);
-                    reject(err);
-                } else {
-                    console.log('✅ Senha atualizada:', result.affectedRows, 'linha(s)');
-                    resolve(result);
-                }
-            });
-        });
-
-        req.flash('success', 'Senha alterada com sucesso!');
-        console.log('✅ Senha alterada com sucesso para usuário:', userId);
-        res.redirect('/perfil');
-
-    } catch (error) {
-        console.error('💥 Erro ao alterar senha:', error);
-        req.flash('error', 'Erro ao alterar senha. Tente novamente.');
-        res.redirect('/perfil');
-    }
-});
-
-// ROTA: Upload de foto de perfil (melhorada)
-app.post('/upload-foto', requireAuth, upload.single('foto'), (req, res) => {
-    console.log('📸 Upload de foto de perfil...');
-    
-    if (!req.file) {
-        console.log('❌ Nenhuma foto selecionada');
-        req.flash('error', 'Nenhuma foto foi selecionada');
-        return res.redirect('/perfil');
-    }
-
-    const userId = req.session.user.id;
-    const fotoPath = `/uploads/${req.file.filename}`;
-    
-    console.log('📁 Arquivo enviado:', {
-        filename: req.file.filename,
-        size: req.file.size,
-        mimetype: req.file.mimetype
-    });
-
-    db.query(
-        'UPDATE usuarios SET foto_perfil = ?, atualizado_em = NOW() WHERE id = ?',
-        [fotoPath, userId],
-        (err) => {
-            if (err) {
-                console.error('❌ Erro ao salvar foto:', err);
-                req.flash('error', 'Erro ao salvar foto');
-                return res.redirect('/perfil');
-            }
-
-            // Atualizar sessão
-            req.session.user.foto_perfil = fotoPath;
-            
-            console.log('✅ Foto de perfil atualizada:', fotoPath);
-            req.flash('success', 'Foto de perfil atualizada com sucesso!');
-            res.redirect('/perfil');
-        }
-    );
-});
-
-// ROTA: Atualizar categorias (melhorada)
-app.post('/atualizar-categorias', requireAuth, (req, res) => {
-    console.log('🏷️ Atualizando categorias do usuário...');
-    
-    const { categorias } = req.body;
-    const userId = req.session.user.id;
-    
-    console.log('📊 Categorias recebidas:', categorias);
-    console.log('👤 Usuário ID:', userId);
-
-    // Remover categorias existentes
-    db.query('DELETE FROM usuario_categorias WHERE usuario_id = ?', [userId], (err) => {
-        if (err) {
-            console.error('❌ Erro ao remover categorias existentes:', err);
-            req.flash('error', 'Erro ao atualizar preferências');
-            return res.redirect('/perfil');
-        }
-
-        console.log('🗑️ Categorias existentes removidas');
-
-        // Inserir novas categorias se houver
-        if (categorias && categorias.length > 0) {
-            const categoriasArray = Array.isArray(categorias) ? categorias : [categorias];
-            const values = categoriasArray.map(catId => [userId, catId]);
-            
-            console.log('📝 Inserindo categorias:', values);
-
-            db.query(
-                'INSERT INTO usuario_categorias (usuario_id, categoria_id) VALUES ?',
-                [values],
-                (err) => {
-                    if (err) {
-                        console.error('❌ Erro ao inserir novas categorias:', err);
-                        req.flash('error', 'Erro ao atualizar preferências');
-                        return res.redirect('/perfil');
-                    }
-
-                    console.log('✅ Categorias atualizadas:', categoriasArray.length, 'categoria(s)');
-                    req.flash('success', `Preferências atualizadas! ${categoriasArray.length} categoria(s) selecionada(s).`);
-                    res.redirect('/perfil');
-                }
-            );
-        } else {
-            console.log('📭 Nenhuma categoria selecionada');
-            req.flash('warning', 'Nenhuma categoria foi selecionada. Você pode não receber notícias personalizadas.');
-            res.redirect('/perfil');
-        }
-    });
-});
-
-// ROTA: API para buscar dados do usuário (para AJAX se necessário)
-app.get('/api/perfil', requireAuth, (req, res) => {
-    const userId = req.session.user.id;
-    
-    const query = `
-        SELECT 
-            u.id, u.nome, u.email, u.foto_perfil, u.criado_em,
-            COUNT(uc.id) as total_categorias
-        FROM usuarios u
-        LEFT JOIN usuario_categorias uc ON u.id = uc.usuario_id
-        WHERE u.id = ?
-        GROUP BY u.id
-    `;
-
-    db.query(query, [userId], (err, results) => {
-        if (err) {
-            console.error('❌ Erro ao buscar dados do perfil:', err);
-            return res.status(500).json({ error: 'Erro interno do servidor' });
-        }
-
-        if (results.length === 0) {
-            return res.status(404).json({ error: 'Usuário não encontrado' });
-        }
-
-        const userData = results[0];
-        res.json({
-            id: userData.id,
-            nome: userData.nome,
-            email: userData.email,
-            foto_perfil: userData.foto_perfil,
-            criado_em: userData.criado_em,
-            total_categorias: userData.total_categorias
-        });
-    });
-});
-
-console.log('✅ Rotas do perfil configuradas com sucesso!');
-
 // Logout
 app.get('/logout', (req, res) => {
     req.session.destroy((err) => {
@@ -1010,6 +637,25 @@ app.get('/logout', (req, res) => {
         }
         res.redirect('/');
     });
+});
+
+// ===== ROTAS ADMINISTRATIVAS (APENAS UMA VEZ) =====
+const adminRoutes = require('./routes/admin');
+app.use('/admin', adminRoutes);
+
+// ===== MIDDLEWARE PARA TRATAMENTO DE ERROS DE UPLOAD (APENAS UMA VEZ) =====
+app.use((error, req, res, next) => {
+    if (error && error.code === 'LIMIT_FILE_SIZE') {
+        req.flash('error', 'Arquivo muito grande! Verifique os limites de tamanho.');
+        return res.redirect('back');
+    }
+    
+    if (error && error.message && error.message.includes('arquivo')) {
+        req.flash('error', error.message);
+        return res.redirect('back');
+    }
+    
+    next(error);
 });
 
 // Inicializar servidor
@@ -1024,8 +670,76 @@ db.connect((err) => {
 });
 
 app.listen(PORT, () => {
+    console.log('✅ Rotas do perfil configuradas com sucesso!');
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
     console.log(`🌐 Acesse: http://localhost:${PORT}`);
     console.log('📝 Cadastro: http://localhost:3000/cadastro');
     console.log('🔑 Login: http://localhost:3000/login');
 });
+
+// ===== ADICIONE ESTA ROTA AO SEU app.js =====
+// Adicione ANTES das rotas administrativas
+
+// Rota para visualizar notícia individual
+app.get('/noticia/:id', async (req, res) => {
+    try {
+        const noticiaId = req.params.id;
+        
+        // Buscar notícia com categoria
+        const noticiaQuery = `
+            SELECT n.*, c.nome as categoria_nome, c.cor as categoria_cor 
+            FROM noticias n 
+            LEFT JOIN categorias c ON n.categoria_id = c.id 
+            WHERE n.id = ? AND n.publicado = 1
+        `;
+        
+        const noticia = await new Promise((resolve, reject) => {
+            db.query(noticiaQuery, [noticiaId], (err, results) => {
+                if (err) reject(err);
+                else resolve(results);
+            });
+        });
+
+        if (noticia.length === 0) {
+            req.flash('error', 'Notícia não encontrada');
+            return res.redirect('/');
+        }
+
+        // Incrementar visualizações
+        await new Promise((resolve, reject) => {
+            db.query('UPDATE noticias SET visualizacoes = visualizacoes + 1 WHERE id = ?', [noticiaId], (err, result) => {
+                if (err) reject(err);
+                else resolve(result);
+            });
+        });
+
+        // Buscar notícias relacionadas da mesma categoria
+        const relacionadasQuery = `
+            SELECT n.*, c.nome as categoria_nome, c.cor as categoria_cor 
+            FROM noticias n 
+            LEFT JOIN categorias c ON n.categoria_id = c.id 
+            WHERE n.categoria_id = ? AND n.id != ? AND n.publicado = 1 
+            ORDER BY n.criado_em DESC 
+            LIMIT 4
+        `;
+        
+        const relacionadas = await new Promise((resolve, reject) => {
+            db.query(relacionadasQuery, [noticia[0].categoria_id, noticiaId], (err, results) => {
+                if (err) reject(err);
+                else resolve(results);
+            });
+        });
+
+        res.render('noticia', {
+            noticia: noticia[0],
+            relacionadas
+        });
+
+    } catch (error) {
+        console.error('Erro ao carregar notícia:', error);
+        req.flash('error', 'Erro ao carregar notícia');
+        res.redirect('/');
+    }
+});
+
+

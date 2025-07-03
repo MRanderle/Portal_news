@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Notícias | Admin</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <!-- Custom Admin CSS -->
+    <style>
+        :root {
+            --admin-primary: #1f2937;
+            --admin-secondary: #374151;
+            --admin-accent: #3b82f6;
+            --admin-success: #10b981;
+            --admin-warning: #f59e0b;
+            --admin-danger: #ef4444;
+        }
+
+        body {
+            background-color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .sidebar {
+            background: linear-gradient(180deg, var(--admin-primary) 0%, var(--admin-secondary) 100%);
+            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 250px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar .nav-link {
+            color: #d1d5db;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 4px 12px;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            background-color: var(--admin-accent);
+            color: white;
+            transform: translateX(4px);
+        }
+
+        .sidebar .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .top-navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 15px 25px;
+            margin: -20px -20px 25px -20px;
+            border-radius: 0 0 15px 15px;
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .btn-admin {
+            background: var(--admin-accent);
+            border-color: var(--admin-accent);
+            border-radius: 10px;
+            font-weight: 600;
+            padding: 10px 20px;
+            color: white;
+        }
+
+        .btn-admin:hover {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: white;
+        }
+
+        .table {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 0 1px #e5e7eb;
+        }
+
+        .table thead th {
+            background-color: var(--admin-primary);
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+
+        .badge-status {
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .alert {
+            border: none;
+            border-radius: 10px;
+            padding: 15px 20px;
+        }
+
+        .smaller {
+            font-size: 0.75rem;
+        }
+
+        .text-truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .table td {
+            vertical-align: middle;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="p-4">
+            <h4 class="text-white mb-4">
+                <i class="bi bi-shield-check me-2"></i>
+                Administração
+            </h4>
+        </div>
+        
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="/admin">
+                    <i class="bi bi-speedometer2"></i>
+                    Dashboard
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link active" href="/admin/noticias">
+                    <i class="bi bi-newspaper"></i>
+                    Notícias
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link" href="/admin/noticias/nova">
+                    <i class="bi bi-plus-circle"></i>
+                    Nova Notícia
+                </a>
+            </li>
+            
+            <% if (admin.tipo_usuario === 'master') { %>
+            <li class="nav-item">
+                <a class="nav-link" href="/admin/usuarios">
+                    <i class="bi bi-people"></i>
+                    Usuários
+                </a>
+            </li>
+            
+            <!-- <li class="nav-item">
+                <a class="nav-link" href="/admin/categorias">
+                    <i class="bi bi-tags"></i>
+                    Categorias
+                </a>
+            </li> -->
+            
+            <!-- <li class="nav-item">
+                <a class="nav-link" href="/admin/configuracoes">
+                    <i class="bi bi-gear"></i>
+                    Configurações
+                </a>
+            </li> -->
+            <% } %>
+            
+            <hr class="text-light my-3">
+            
+            <li class="nav-item">
+                <a class="nav-link" href="/" target="_blank">
+                    <i class="bi bi-box-arrow-up-right"></i>
+                    Ver Site
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <form action="/admin/logout" method="POST" class="d-inline w-100">
+                    <button type="submit" class="nav-link btn btn-link text-start w-100 border-0" style="color: #d1d5db;">
+                        <i class="bi bi-box-arrow-right"></i>
+                        Sair
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Navbar -->
+        <div class="top-navbar d-flex justify-content-between align-items-center">
+            <div>
+                <button class="btn btn-link d-md-none" id="sidebarToggle">
+                    <i class="bi bi-list fs-3"></i>
+                </button>
+                <h2 class="mb-0 d-inline-block ms-2">Gestão de Notícias</h2>
+            </div>
+            
+            <div class="d-flex align-items-center">
+                <span class="me-3">
+                    <i class="bi bi-person-circle me-2"></i>
+                    <%= admin.nome %>
+                    <span class="badge bg-<%= admin.tipo_usuario === 'master' ? 'danger' : 'primary' %> ms-2">
+                        <%= admin.tipo_usuario === 'master' ? 'Master' : 'Admin' %>
+                    </span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        <% if (typeof messages !== 'undefined') { %>
+            <% if (messages.success && messages.success.length > 0) { %>
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <%= messages.success[0] %>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <% } %>
+            <% if (messages.error && messages.error.length > 0) { %>
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <%= messages.error[0] %>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <% } %>
+        <% } %>
+
+        <!-- Header com ações -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3>
+                <i class="bi bi-newspaper me-2"></i>
+                Gestão de Notícias
+            </h3>
+            <a href="/admin/noticias/nova" class="btn btn-admin">
+                <i class="bi bi-plus-circle me-2"></i>
+                Nova Notícia
+            </a>
+        </div>
+
+        <!-- Filtros e busca -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" name="busca" 
+                               placeholder="Buscar por título..." 
+                               value="<%= typeof req !== 'undefined' && req.query.busca || '' %>">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" name="status">
+                            <option value="">Todos os status</option>
+                            <option value="1">Publicadas</option>
+                            <option value="0">Rascunhos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" name="categoria">
+                            <option value="">Todas as categorias</option>
+                            <!-- Categorias serão carregadas dinamicamente -->
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-search"></i> Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Lista de notícias -->
+        <div class="card">
+            <div class="card-body">
+                <% if (noticias.length === 0) { %>
+                    <div class="text-center py-5">
+                        <i class="bi bi-newspaper fs-1 text-muted mb-3"></i>
+                        <h4 class="text-muted">Nenhuma notícia encontrada</h4>
+                        <p class="text-muted">Comece criando sua primeira notícia!</p>
+                        <a href="/admin/noticias/nova" class="btn btn-admin">
+                            <i class="bi bi-plus-circle me-2"></i>
+                            Criar primeira notícia
+                        </a>
+                    </div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Notícia</th>
+                                    <th style="width: 120px;">Categoria</th>
+                                    <th style="width: 120px;">Autor</th>
+                                    <th style="width: 100px;">Status</th>
+                                    <th style="width: 80px;">Views</th>
+                                    <th style="width: 120px;">Criado em</th>
+                                    <th style="width: 120px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% noticias.forEach((noticia, index) => { %>
+                                <tr>
+                                    <td class="text-muted">
+                                        <%= noticia.id %>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <!-- Thumbnail -->
+                                            <div class="me-3">
+                                                <% if (noticia.imagem) { %>
+                                                    <img src="<%= noticia.imagem %>" alt="Thumbnail" 
+                                                         class="rounded" style="width: 60px; height: 40px; object-fit: cover;">
+                                                <% } else { %>
+                                                    <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                                         style="width: 60px; height: 40px;">
+                                                        <i class="bi bi-image text-muted"></i>
+                                                    </div>
+                                                <% } %>
+                                            </div>
+                                            
+                                            <!-- Título e detalhes -->
+                                            <div class="flex-grow-1">
+                                                <div class="fw-bold text-truncate" style="max-width: 300px;">
+                                                    <%= noticia.titulo %>
+                                                </div>
+                                                
+                                                <div class="small text-muted mt-1">
+                                                    <% if (noticia.subtitulo) { %>
+                                                        <div class="text-truncate" style="max-width: 300px;">
+                                                            <%= noticia.subtitulo %>
+                                                        </div>
+                                                    <% } %>
+                                                    
+                                                    <!-- Indicadores de mídia -->
+                                                    <div class="mt-1">
+                                                        <% if (noticia.video_url) { %>
+                                                            <span class="badge bg-info me-1">
+                                                                <i class="bi bi-play-circle me-1"></i>Vídeo
+                                                            </span>
+                                                        <% } %>
+                                                        <% if (noticia.imagem) { %>
+                                                            <span class="badge bg-secondary me-1">
+                                                                <i class="bi bi-image me-1"></i>Imagem
+                                                            </span>
+                                                        <% } %>
+                                                        <% if (noticia.url_externa) { %>
+                                                            <span class="badge bg-warning">
+                                                                <i class="bi bi-link me-1"></i>Link
+                                                            </span>
+                                                        <% } %>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <% if (noticia.categoria_nome) { %>
+                                            <span class="badge bg-secondary">
+                                                <%= noticia.categoria_nome %>
+                                            </span>
+                                        <% } else { %>
+                                            <span class="text-muted small">Sem categoria</span>
+                                        <% } %>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="small">
+                                            <%= noticia.admin_nome || noticia.autor || 'N/A' %>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <% if (noticia.publicado) { %>
+                                            <span class="badge badge-status bg-success">
+                                                <i class="bi bi-eye me-1"></i>
+                                                Publicado
+                                            </span>
+                                        <% } else { %>
+                                            <span class="badge badge-status bg-warning text-dark">
+                                                <i class="bi bi-pencil me-1"></i>
+                                                Rascunho
+                                            </span>
+                                        <% } %>
+                                    </td>
+                                    
+                                    <td>
+                                        <span class="badge bg-info">
+                                            <%= noticia.visualizacoes || 0 %>
+                                        </span>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="small text-muted">
+                                            <%= new Date(noticia.criado_em).toLocaleDateString('pt-BR') %>
+                                            <br>
+                                            <span class="smaller">
+                                                <%= new Date(noticia.criado_em).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) %>
+                                            </span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <!-- Botão Ver -->
+                                            <a href="/noticia/<%= noticia.id %>" target="_blank" 
+                                               class="btn btn-outline-info" title="Ver notícia">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            
+                                            <!-- Botão Editar -->
+                                            <a href="/admin/noticias/<%= noticia.id %>/editar" 
+                                               class="btn btn-outline-primary" title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            
+                                            <!-- Botão Deletar -->
+                                            <button onclick="confirmDelete('/admin/noticias/<%= noticia.id %>', '<%= noticia.titulo.replace(/'/g, "\\'") %>')" 
+                                                    class="btn btn-outline-danger" title="Deletar">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Paginação -->
+                    <% if (totalPages > 1) { %>
+                    <nav aria-label="Paginação" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            <!-- Primeira página -->
+                            <% if (currentPage > 1) { %>
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">
+                                    <i class="bi bi-chevron-double-left"></i>
+                                </a>
+                            </li>
+                            <% } %>
+                            
+                            <!-- Página anterior -->
+                            <% if (hasPrev) { %>
+                            <li class="page-item">
+                                <a class="page-link" href="?page=<%= currentPage - 1 %>">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                            <% } %>
+                            
+                            <!-- Páginas numéricas -->
+                            <% for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) { %>
+                            <li class="page-item <%= i === currentPage ? 'active' : '' %>">
+                                <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+                            </li>
+                            <% } %>
+                            
+                            <!-- Próxima página -->
+                            <% if (hasNext) { %>
+                            <li class="page-item">
+                                <a class="page-link" href="?page=<%= currentPage + 1 %>">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <% } %>
+                            
+                            <!-- Última página -->
+                            <% if (currentPage < totalPages) { %>
+                            <li class="page-item">
+                                <a class="page-link" href="?page=<%= totalPages %>">
+                                    <i class="bi bi-chevron-double-right"></i>
+                                </a>
+                            </li>
+                            <% } %>
+                        </ul>
+                        
+                        <div class="text-center text-muted">
+                            Página <%= currentPage %> de <%= totalPages %>
+                        </div>
+                    </nav>
+                    <% } %>
+                <% } %>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom Admin JS -->
+    <script>
+        // Sidebar toggle para mobile
+        document.getElementById('sidebarToggle')?.addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('show');
+        });
+
+        // Auto-hide alerts
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                if (alert.querySelector('.btn-close')) {
+                    alert.style.transition = 'opacity 0.5s ease';
+                    alert.style.opacity = '0';
+                    setTimeout(() => alert.remove(), 500);
+                }
+            });
+        }, 5000);
+
+        // Confirmar deletar
+        function confirmDelete(url, nome) {
+            if (confirm(`Tem certeza que deseja deletar "${nome}"? Esta ação não pode ser desfeita.`)) {
+                fetch(url, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Erro ao deletar: ' + (data.error || 'Erro desconhecido'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Erro ao deletar');
+                });
+            }
+        }
+    </script>
+</body>
+</html>
